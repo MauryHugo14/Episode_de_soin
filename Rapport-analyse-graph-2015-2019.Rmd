@@ -1,0 +1,255 @@
+---
+title: "Analyse descriptive graph Ortho 2015 - 2019 "
+author: "Hugo MAURY"
+date: "`r format (Sys.time(),'%d %B %Y')`"
+fontsize : 7pt
+documentclass: "article"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+  rmarkdown::html_document:
+    theme : journal
+toc-title: "Sommaire"
+---
+
+\newpage
+
+<center>
+  ![](EHESP-logo.webp){width=60%, height=60%}
+</center>
+
+
+\newpage
+
+# Introduction 
+
+## Définition 
+
+Nous allons nous concentrer sur les établissements MCO (Médecine, Chirurgie, Obstrétrique). Ils correspondent aux séjours hospitaliers en soin de courtes durée, avec ou sans hébergement, ou des affections graves pendant leur phase aiguë.
+
+Nous allons comparer les départements possédants au moins 1 expérimentateur aux départements n'ayant pas d'expérimentateur, de l'année 2015 à l'année 2019. Notre fichier de données est composés de 14 variables :
+
+
+* *name* : Indique l'indentifiant de l'hôpital et son status juridique
+* *strength_total* : Indique le nombre total de flux patient entre par hôpital
+* *closeness_all* : Indique l'autonomie/l’indépendance d'un bâtiment
+* *centrality* : Indique la notion d'importance d'un bâtiment dans un réseau.
+* *betweeness* : Indique l'interaction que possède un hôpital
+* *prestige* : Indique l'attractivités d'un hôpital
+* *pagerank* :Indique la réputation d'un hôpital
+* *triangles* : Indique le nombre de fois que l'on peut lier 3 hôpitaux entre eux
+* *finess* : Indique l'indentifiant de l'hôpital
+* *degree* : Indique le nombre de relation que possède un hôpital
+* *experimentateur* : Hôpitaux participant, ou non, au projet EDS
+* *status* : Type d'hôpital
+* *reg17_label* : Région où est situé l'hôpital
+* *annee* : Année d'enregistrement de l'hôpital
+* *Count* : Nombre de fois qu'un hôpital est présent de 2015 à 2019
+
+## Sources 
+
+*Sources :* 
+
+* Orthopédie
+* PMSI 2015-2019
+* Etablissement MCO
+* Département français (MCO-SSR-HAD)
+
+Les analyses ont été réalisées grâce au logiciel Rstudio version 4.0.5.
+
+\newpage
+
+# Description 
+```{r, include=FALSE}
+# Chargement des libraries
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(car)
+library(tidyr)
+library(gtsummary)
+library(MASS)
+library(caret)
+library(plm)
+library(forestplot)
+library(ggcorrplot)
+```
+
+```{r, echo=FALSE}
+# Chargements des données
+dataset = read.csv(file="Mesure_mco_filtre.csv", sep=";", encoding = "txt")
+dataset <- dataset[,-13]
+dataset %>% mutate(experimentateur = factor(experimentateur,  labels=c("no", "yes"))) -> dataset
+```
+
+## Comparaison année par année des exp/non-exp 
+
+*no* correspond aux nombres de bâtiments non-expérimentateurs, et *yes* correspond aux nombres de bâtiments expérimentateurs, durant les 5 années.
+
+```{r, echo=FALSE, warning=FALSE}
+dataset[,c(-1, -10, -12, -13, -15)] -> dataset2
+
+tbl15 <- dataset2 %>% filter(annee == "2015")
+tbl15 <- tbl15[,-10]
+tbl15 <- tbl15 %>% tbl_summary(by=experimentateur)
+
+tbl16 <- dataset2 %>% filter(annee == "2016")
+tbl16 <- tbl16[,-10]
+tbl16 <- tbl16 %>% tbl_summary(by=experimentateur)
+
+tbl17 <- dataset2 %>% filter(annee == "2017")
+tbl17 <- tbl17[,-10]
+tbl17 <- tbl17 %>% tbl_summary(by=experimentateur)
+
+tbl18 <- dataset2 %>% filter(annee == "2018")
+tbl18 <- tbl18[,-10]
+tbl18 <- tbl18 %>% tbl_summary(by=experimentateur)
+
+tbl19 <- dataset2 %>% filter(annee == "2019")
+tbl19 <- tbl19[,-10]
+tbl19 <- tbl19 %>% tbl_summary(by=experimentateur)
+
+tbl <- tbl_merge(tbls = list(tbl15, tbl16, tbl17, tbl18, tbl19),
+                 tab_spanner = c("2015","2016","2017","2018","2019"))
+
+tbl %>%  modify_header(label ~ "**Variable**") %>% bold_labels() 
+```
+
+\newpage
+
+## Comparaison des exp/non-exp 
+
+Dans la partie *Comparaison*, *no* correspond aux nombres de bâtiments non-expérimentateurs, et *yes* correspond aux nombres de bâtiments expérimentateurs, durant les 5 années.
+
+```{r, echo=FALSE, warning=FALSE}
+# On enlève les variables non utiles à la comparaison 
+dataset[,c(-1, -10, -12, -13, -14, -15)] -> dataset3
+
+#coef <- tbl_regression(model2)%>% bold_p()
+coef <- dataset3 %>%tbl_uvregression(method = glm, 
+                             y = experimentateur,
+                             method.args = list(family = binomial(link="logit")),
+                             exponentiate = TRUE) %>% bold_p()
+
+comparaison <- dataset3 %>% tbl_summary(by=experimentateur, digits = all_continuous() ~ 2) %>%  modify_header(label ~ "**Variable**")  %>% bold_labels() 
+  
+tbl_comp <-tbl_merge(tbls = list(comparaison, coef), 
+    tab_spanner = c("**Comparaison**", "**Modele univarié**")) 
+
+tbl_comp
+
+
+```
+
+\newpage
+
+## Visualisation de variables corrélées 
+
+```{r, echo=FALSE, warning=FALSE}
+dataset[,c(-1, -11, -10, -12, -13, -14, -15)] -> dataset4
+corr <- round(cor(dataset4), 1)
+ggcorrplot(corr)
+```
+
+Nous pouvons observer une forte corrélation entre la variable *degree* et *strength_total*. Ce qui est de même pour les variables *betweenness* et *pagerank*, et *centrality* et *closeness_all*. Au contraire des variables *triangles* et *pagerank*, qui sont les moins corrélés. 
+
+\newpage
+
+# Facteurs différenciant les expérimentateurs et les non-expérimentateurs 
+
+## Modèle logistique complet 
+
+```{r, echo=FALSE}
+# Détection des valeurs outliers
+#outlier_val <- boxplot.stats(dataset$closeness_all)$out
+# On récupère les individus grâce aux valeurs outliers
+#outlier_idx <-which(dataset$closeness_all %in% c(outlier_val))
+# Affichage des lignes correspondants au outliers
+#dataset[outlier_idx,c(-1,-9,-10,-12,-13,-15)]  -> data
+#data %>% group_by(experimentateur) %>% tbl_summary(by=experimentateur)
+```
+
+```{r echo=FALSE, warning=FALSE}
+# Préparation des données
+dataset2 <- dataset[,c(-1,-9,-10,-12,-13,-15)]
+model1 = glm(experimentateur~closeness_all+centrality+prestige+betweenness+pagerank+triangles+strength_total+factor(annee),data=dataset2,family=binomial(link="logit"))
+```
+
+Dans un premier temps, nous allons inclure toutes les variables dans le modèle, puis nous allons vérifier leurs significativités :
+
+```{r, echo=FALSE, warning=FALSE}
+Anova(model1, type="II", test="LR")
+```
+
+Au vu des p_value, nous sommes en présence de variable non significative. Nous allons donc éliminer, de manière automatique, les variables non pertinentes selon le critère **AIC (Akaike Information Criterion)**.
+
+\newpage
+
+## Modèle AIC 
+
+```{r, echo=FALSE, warning=FALSE, include=FALSE}
+model2 = stepAIC(model1, direction = "both", k = 2, trace=FALSE)
+Anova(model2, type="II", test="LR")
+```
+
+A l'aide de la méthode *AIC*, nous obtenons le modèle final suivant :
+
+```{r, echo=FALSE}
+#model2 = update(model2,~.+factor(annee))
+summary(model2)
+```
+
+\newpage
+
+Représentation graphique des coefficients du modèle, avec l'intervalle de confiance à 95% :
+
+#```{r, echo=FALSE, warning=FALSE, message=FALSE}
+variables <- c("intercept","closeness","prestige","betweenness","triangles","strength","factor(annee)2016","factor(annee)2017","factor(annee)2018","factor(annee)2019")
+
+coefplm <- c()
+
+# Coef
+temp <- data.frame(model2$coefficients, confint(model2)[,1],confint(model2)[,2])
+
+# ODDS Ratio
+#temp <- data.frame(exp(coef(model2)), exp(confint(model2)[,1]),exp(confint(model2)[,2]))
+
+
+coefplm <- rbind(coefplm, temp)
+
+# Les lignes prennent le nom des variables
+rownames(coefplm) <- variables
+
+# On nommes les 3 colonnes
+colnames(coefplm) <- c("Coef","Lower","Upper")
+
+# On tranforme coefplm en data.frame
+coefplm <- data.frame(coefplm)
+
+coefplm2 <- coefplm[c(2,3,4,5,6),]
+
+# Visualisation des coef avec leurs CI95% pour chaque variable
+forestplot(rownames(coefplm2), coefplm2$Coef, 
+           coefplm2$Lower,
+           coefplm2$Upper,
+           zero = 0,
+           xlab = "Coef (95%) ",
+           col = fpColors(box = c("red4"), 
+                          lines = c("skyblue3")),
+           xticks = seq(-10,8,1),
+           boxsize = 0.05,
+           vertices = TRUE,
+           txt_gp = fpTxtGp(label = list(gpar(col = "#660001", cex = .75)),
+                              ticks = gpar(cex = .5),
+                              xlab  = gpar(cex = .9)))
+```
+
+\newpage
+
+# Analyse en panel
+
+```{r, echo=FALSE}
+
+```
+

@@ -1,0 +1,150 @@
+---
+title: "Analyse des gagnants et perdants du projet EDS"
+author: "Hugo MAURY"
+date: "`r format (Sys.time(),'%d %B %Y')`"
+fontsize : 7pt
+documentclass: "article"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+  rmarkdown::html_document:
+    theme : journal
+toc-title: "Sommaire"
+---
+
+\newpage
+
+```{r, include=FALSE}
+#library
+library(dplyr)
+library(gtsummary)
+library(caret)
+library(car)
+library(MASS)
+```
+
+
+```{r, include=FALSE}
+data = read.csv("basse_donnees_territoire_ptgpth.csv", header=TRUE, sep=";")
+```
+Nous allons comparer les indicateurs des bâtiments gagnants et perdants.
+
+# Comparaison des indicateurs des hôpitaux gagnants et perdants
+
+## Comparaison des ptg et pth
+
+```{r, echo=FALSE}
+dataPtgPth =  data[,5:7]
+dataPtgPth %>% mutate(gagnant = ifelse(gagnant == 1, "gagnant", "perdant")) -> dataPtgPth
+dataPtgPth %>% tbl_summary(by=gagnant)
+```
+
+\newpage
+
+## Comparaison des structures des réseaux de soins
+```{r, echo=FALSE}
+data_reseau = data[,c(5,8:16)]
+data_reseau %>% mutate(gagnant = ifelse(gagnant == 1, "gagnant", "perdant")) -> data_reseau
+data_reseau %>% tbl_summary(by=gagnant)
+```
+Sur ce tableaux, nous pouvons constater que les indicateurs des réseaux de soin des bâtiments gagnants sont légèrement plus élevés que ceux des bâtiments perdants.
+
+\newpage
+
+Dans un premier temps, nous allons comparer le temps d'accès (en minute) minimum et maximum, par bâtiment gagnant et perdant.
+
+## Temps d'accès minimum
+```{r, echo=FALSE}
+data_min = data[,c(5,19:23)]
+data_min %>% mutate(gagnant = ifelse(gagnant == 1, "gagnant", "perdant")) -> data_min
+data_min %>% tbl_summary(by=gagnant)
+```
+
+Il ne semble pas avoir de différence au niveau du temps d'accès minimum des bâtiments gagnants et perdants.
+
+\newpage
+
+## Temps d'accès maximum
+```{r, echo=FALSE}
+data_max = data[,c(5,24:28)]
+data_max %>% mutate(gagnant = ifelse(gagnant == 1, "gagnant", "perdant")) -> data_max
+data_max %>% tbl_summary(by=gagnant)
+```
+
+Il ne semble pas avoir de différence au niveau du temps d'accès maximum des bâtiments gagnants et perdants.
+
+\newpage
+
+Nous allons maintenant comparer le nombre de centre de soin infirmiers et polyvalent (CSIP) et le nombre de Service de soin Infirmier à domicile, en fonction des bâtiments gagnants et perdants.
+
+## Comparaison des CSIP et SSIAD
+```{r, echo=FALSE}
+data_CsipSsiad = data[,c(5,29,30)]
+data_CsipSsiad %>% mutate(gagnant = ifelse(gagnant == 1, "gagnant", "perdant")) -> data_CsipSsiad
+data_CsipSsiad %>% tbl_summary(by=gagnant)
+```
+
+Les bâtiments perdants ont tendances à avoir deux fois plus de CSIP et de SSIAD que les bâtiments gagnants.
+
+\newpage
+
+A présent, comparons les indicateurs concernant les kinés et les infirmiers, aux bâtiments gagnants et perdants.
+
+## Comparaison des indicateurs kinés et infirmiers
+
+```{r, echo=FALSE}
+data_KineNurse = data[,c(5,17,18,31,32)]
+data_KineNurse %>% mutate(gagnant = ifelse(gagnant == 1, "gagnant", "perdant")) -> data_KineNurse
+data_KineNurse %>% tbl_summary(by=gagnant)
+```
+
+Les hôpitaux perdants ont tendences à avoir un meilleur accès, au niveau des kinés et des infirmiers, que les hôpitaux gagnants.
+
+
+\newpage
+
+# Modèle logistique
+
+Dans un premier temps, nous allons créer on modèle logistique complet, puis nous allons vérifier la significativité des variables.
+
+```{r, echo=FALSE}
+data <- read.csv("base_donnees_territoire_PTH.csv", header=TRUE, sep=";")
+data_mode = data[-19,c(5,16,29:32)]
+data_mode = data[,c(5,16,29:32)]
+model1 = glm(gagnant~.,data=data_mode,family=binomial(link="logit"))
+summary(model1)
+```
+
+\newpage
+
+ Vérification de la significativité des variables :
+```{r, echo=FALSE, warning=FALSE}
+Anova(model1, type="II", test="LR")
+```
+
+\newpage
+
+Au vu des p_values, nous sommes en présence de variable non significative. Nous allons donc éliminer, de manière automatique, les variables non pertinentes selon le critère **AIC (Akaike Information Criterion)**.
+
+```{r, echo=FALSE, warning=FALSE}
+model2 = stepAIC(model1, direction = "both", k = 2, trace=FALSE)
+Anova(model2, type="II", test="LR")
+```
+
+Les variables sont significatives.
+
+\newpage
+
+Voici notre modèle final :
+```{r, echo=FALSE}
+summary(model2)
+```
+
+\newpage
+
+Odds Ratio 
+```{r, echo=FALSE}
+exp(coef(model2))
+```
+

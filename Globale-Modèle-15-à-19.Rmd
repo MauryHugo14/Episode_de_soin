@@ -1,0 +1,482 @@
+---
+title: "Analyses globale de 2015 - 2019"
+author: "Hugo MAURY"
+date: "`r format (Sys.time(),'%d %B %Y')`"
+fontsize : 7pt
+documentclass: "article"
+output: 
+  rmarkdown::html_document:
+    theme : journal
+---
+
+<center>
+  ![](EHESP-logo.webp){width=60%, height=60%}
+</center>
+
+\newpage
+
+# SOMMAIRE
+
+### 1. Description des données
+
+### 2. Comparaison année par année des départements
+
+### 3. Comparaison des département possédant au moins 1 expérimentateur aux départements n'en possédant pas
+
+### 4. Comparaison des département en fonction du nombre d'expérimentateur
+
+### 5. Comparaison des expérimentateurs en fonction de la population pour l'année 2019
+
+### 6. Comparaison des expérimentateurs en fonction de la superficie des départements pour l'année 2019
+
+### 7. Modèle de prédiction
+
+\newpage
+
+
+# 1. Description des données
+
+Nous allons comparer les départements possédants au moins 1 expérimentateur aux départements n'ayant pas d'expérimentateur, de l'année 2015 à l'année 2019. Notre fichier de données est composés de 10 variables :
+
+* *vertex* : Nombres d'hôpitaux par département
+* *edges* : Nombres liens avec les autres hôpitaux
+* *diameter* : Plus grande distance possible entre deux hôpitaux
+* *density* : Indique à quel point un hôpital est lié aux autres hopitaux
+* *reciprocity* : Indique la relation qu'a un hôpital envers les autres hôpitaux
+* *assortativity* : Indique si un hôpital possède des liens privilégiés avec d'autres hôpitaux
+* *departement* : Numéro de département français
+* *Exp* : Indique si le département possède un expérimentateur (Oui pour 1, Non pour 0)
+* *annee* : Année d'enregistrement de l'établissement
+* *Count* : Nombre de fois qu'un département possède au moins un établissement expérimentateur sur la période 2015 - 2019
+
+Les analyses ont été réalisées grâce au logiciel Rstudio version 4.0.5.
+
+
+```{r, include=FALSE}
+# Chargement des libraries
+library(knitr)
+library(ggplot2)
+library(dplyr)
+library(car)
+library(tidyr)
+library(gtsummary)
+library(MASS)
+library(caret)
+```
+
+
+```{r, echo=FALSE}
+rm(list=ls())
+
+# Chargements des données
+# 2015
+dt15 = load(file = "Data/globalstat_ortho_dept/globalstat_ortho15_dept.Rdata")
+dt15 = data.frame(globalstat)
+# 2016
+dt16 = load(file = "Data/globalstat_ortho_dept/globalstat_ortho16_dept.Rdata")
+dt16 = data.frame(globalstat)
+# 2017
+dt17 = load(file = "Data/globalstat_ortho_dept/globalstat_ortho17_dept.Rdata")
+dt17 = data.frame(globalstat)
+# 2018
+dt18 = load(file = "Data/globalstat_ortho_dept/globalstat_ortho18_dept.Rdata")
+dt18 = data.frame(globalstat)
+# 2019
+dt19 = load(file = "Data/globalstat_ortho_dept/globalstat_ortho19_dept.Rdata")
+dt19 = data.frame(globalstat)
+
+# Ajout d'une colonne concernant le num departement
+# 2015
+dt15 %>% mutate(departement = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,
+21,22,23,24,25,26,27,28,29,"2A","2B",30,31,32,33,34,35,36,37,38,39,
+40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,
+60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,
+80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,97,"9A","9B","9C","9D")) -> dt15
+# 2016
+# Ajout d'une colonne concernant le num departement
+dt16 %>% mutate(departement = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,
+21,22,23,24,25,26,27,28,29,"2A","2B",30,31,32,33,34,35,36,37,38,39,
+40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,
+60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,
+80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,97,"9A","9B","9C","9D","9F")) -> dt16
+# 2017
+# Ajout d'une colonne concernant le num departement
+dt17 %>% mutate(departement = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,
+21,22,23,24,25,26,27,28,29,"2A","2B",30,31,32,33,34,35,36,37,38,39,
+40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,
+60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,
+80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,97,"9A","9B","9C","9D")) -> dt17
+# 2018
+dt18 %>% mutate(departement = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,
+21,22,23,24,25,26,27,28,29,"2A","2B",30,31,32,33,34,35,36,37,38,39,
+40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,
+60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,
+80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,"9A","9B","9C","9D")) -> dt18
+# 2019
+dt19 %>% mutate(departement = c(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,
+21,22,23,24,25,26,27,28,29,"2A","2B",30,31,32,33,34,35,36,37,38,39,
+40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,
+60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,
+80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,"9A","9B","9C","9D")) -> dt19
+
+# Ajout d'une colonne du nb d'un étalissement expérimentateur présent dans durant les 5 années
+# 2015
+dt15 %>% mutate(Exp = ifelse(departement == 25, 1,
+                      ifelse(departement == 31, 2,
+                      ifelse(departement == 33, 4, 
+                      ifelse(departement == 34, 1,
+                      ifelse(departement == 35, 1,
+                      ifelse(departement == 42, 1,
+                      ifelse(departement == 57, 1,
+                      ifelse(departement == 59, 3,
+                      ifelse(departement == 64, 1,
+                      ifelse(departement == 69, 3,
+                      ifelse(departement == 71, 1,
+                      ifelse(departement == 75, 5, 
+                      ifelse(departement == 80, 1,
+                      ifelse(departement == 83, 1,
+                      ifelse(departement == 90, 1,
+                      ifelse(departement == 92, 1,
+                      ifelse(departement == 94, 1,
+                      ifelse(departement == 95, 1,
+                             0))))))))))))))))))) -> dt15
+# 2016
+dt16 %>% mutate(Exp = ifelse(departement == 25, 1,
+                      ifelse(departement == 31, 2,
+                      ifelse(departement == 33, 4, 
+                      ifelse(departement == 34, 1,
+                      ifelse(departement == 35, 1,
+                      ifelse(departement == 42, 1,
+                      ifelse(departement == 57, 1,
+                      ifelse(departement == 59, 3,
+                      ifelse(departement == 64, 1,
+                      ifelse(departement == 69, 3,
+                      ifelse(departement == 71, 1,
+                      ifelse(departement == 75, 5, 
+                      ifelse(departement == 80, 1,
+                      ifelse(departement == 83, 1,
+                      ifelse(departement == 90, 1,
+                      ifelse(departement == 92, 1,
+                      ifelse(departement == 94, 1,
+                      ifelse(departement == 95, 1,
+                             0))))))))))))))))))) -> dt16
+# 2017
+dt17 %>% mutate(Exp = ifelse(departement == 25, 1,
+                      ifelse(departement == 31, 2,
+                      ifelse(departement == 33, 4, 
+                      ifelse(departement == 34, 1,
+                      ifelse(departement == 35, 1,
+                      ifelse(departement == 42, 1,
+                      ifelse(departement == 57, 1,
+                      ifelse(departement == 59, 3,
+                      ifelse(departement == 64, 1,
+                      ifelse(departement == 69, 3,
+                      ifelse(departement == 71, 1,
+                      ifelse(departement == 75, 5, 
+                      ifelse(departement == 80, 1,
+                      ifelse(departement == 83, 1,
+                      ifelse(departement == 90, 1,
+                      ifelse(departement == 92, 1,
+                      ifelse(departement == 94, 1,
+                      ifelse(departement == 95, 1,
+                             0))))))))))))))))))) -> dt17
+# 2018
+dt18 %>% mutate(Exp = ifelse(departement == 25, 1,
+                      ifelse(departement == 31, 2,
+                      ifelse(departement == 33, 4, 
+                      ifelse(departement == 34, 1,
+                      ifelse(departement == 35, 1,
+                      ifelse(departement == 42, 1,
+                      ifelse(departement == 57, 1,
+                      ifelse(departement == 59, 3,
+                      ifelse(departement == 64, 1,
+                      ifelse(departement == 69, 3,
+                      ifelse(departement == 71, 1,
+                      ifelse(departement == 75, 5, 
+                      ifelse(departement == 80, 1,
+                      ifelse(departement == 83, 1,
+                      ifelse(departement == 90, 1,
+                      ifelse(departement == 92, 1,
+                      ifelse(departement == 94, 1,
+                      ifelse(departement == 95, 1,
+                             0))))))))))))))))))) -> dt18
+# 2019
+dt19 %>% mutate(Exp = ifelse(departement == 25, 1,
+                      ifelse(departement == 31, 2,
+                      ifelse(departement == 33, 4, 
+                      ifelse(departement == 34, 1,
+                      ifelse(departement == 35, 1,
+                      ifelse(departement == 42, 1,
+                      ifelse(departement == 57, 1,
+                      ifelse(departement == 59, 3,
+                      ifelse(departement == 64, 1,
+                      ifelse(departement == 69, 3,
+                      ifelse(departement == 71, 1,
+                      ifelse(departement == 75, 5, 
+                      ifelse(departement == 80, 1,
+                      ifelse(departement == 83, 1,
+                      ifelse(departement == 90, 1,
+                      ifelse(departement == 92, 1,
+                      ifelse(departement == 94, 1,
+                      ifelse(departement == 95, 1,
+                             0))))))))))))))))))) -> dt19
+# Ajout des années
+dt15 %>% mutate(annee = 2015) -> dt15
+dt16 %>% mutate(annee = 2016) -> dt16
+dt17 %>% mutate(annee = 2017) -> dt17
+dt18 %>% mutate(annee = 2018) -> dt18
+dt19 %>% mutate(annee = 2019) -> dt19
+
+# Sélection des départements qui sont représentés depuis l'année 2015
+selec = rbind(dt15, dt16, dt17, dt18, dt19)
+selec %>% drop_na() -> selec
+selec %>% group_by(departement) %>% mutate(Count = n()) -> selec
+selec %>% filter(Count == 5) -> test
+```
+
+\newpage
+
+
+# 2. Comparaison des départements année par année
+
+*N* correspond au nombre de département français.
+
+```{r, echo=FALSE}
+test[,c(-7,-8,-10)] -> tbl_annee
+tbl_annee %>% tbl_summary(by=annee)
+```
+
+Sur ce tableau, représentant la tendance générale pour chaque variable au fur et mesure des années, nous ne pouvons pas constater de différences, hormis pour la variable *edge*, où nous observons de légère variation, mais cela reste relativement stable.
+
+
+\newpage
+
+
+# 3. Comparaison des département possédant au moins 1 expérimentateur aux départements n'en possédant pas
+
+*N = 0* correspond aux départements ne possédant pas d'expérimentateur durant les 5 années, et *N = 1* correspond aux départements possédant au moins 1 expérimentateur durant les 5 années.  
+
+```{r, echo=FALSE}
+test[,c(-7,-9,-10)] -> tbl_exp
+tbl_exp %>% mutate(ex = ifelse(Exp > 0, 1, 0)) -> tbl_ex
+tbl_ex[,-7] -> tbl_ex1
+tbl_ex1 %>% tbl_summary(by=ex)
+```
+
+Nous pouvons observer que les départements ayant au moins 1 expérimentateur, ont tendances à avoir plus d'hôpitaux et de relations, que les départements ne possédant pas d'expérimentateur.
+
+\newpage
+
+
+# 4. Comparaison des département en fonction du nombre d'expérimentateur
+
+*N = 0* correspond aux départements ne possédant pas d'expérimentateur, *N = 1* correspond aux départements possédant 1 expérimentateur, *N = 2* correspond aux départements possédant 2 expérimentateurs, *N = 3* correspond aux départements possédant 3 expérimentateurs, *N = 4* correspond aux départements possédant 4 expérimentateurs et *N = 5* correspond aux départements possédant 5 expérimentateurs, durant les 5 années.
+
+```{r, echo=FALSE}
+tbl_exp %>% tbl_summary(by=Exp)
+```
+
+Sur ce tableau, représentant la tendance générale pour chaque variable en fonction du nombre d'expérimentateur par département, nous pouvons constater de différence entre ces derniers. Nous voyons que les départements possédant 3 exp ont tendances à avoir le plus d'hôpitaux et de relations entre eux. De plus, les départements possédant au moins 1 exp ont tendance à avoir plus d'hôpitaux et de relation en eux, que les département ne contenant pas d'exp.
+
+
+
+\newpage
+
+
+# 5. Comparaison des expérimentateurs en fonction de la population pour l'année 2019
+
+```{r, echo=FALSE}
+# Importation des données
+pop19 <- read.csv("Data/T19F013.csv", header = TRUE, sep = ";")
+# Sélection des données
+pop19 <- pop19[c(-1,-2,-99,-104,-105,-106,-107,-108,-109),c(-3,-4,-5)]
+pop19 %>% rename("pop_millier_habitant" = "X") -> pop19
+# Ajout de pop19 à dt19
+dt19pop <- cbind(dt19,pop19)
+# Ajout d'une variable
+dt19pop %>% mutate(ex = ifelse(Exp > 0, 1, 0)) -> dt19pop
+# Mettre au format numéric la variable pop_millier_habitant  dans un variable nommé num
+num <- as.numeric(dt19pop$pop_millier_habitant)
+# On retrire pop_millier_habitant de dt19pop
+dt19pop[,-11] -> dt19pop
+# On regroupe les deux fichiers
+dt19pop <- cbind(dt19pop, num)
+```
+
+
+5.1 Boxplot de la populations des départements ayant au moins 1 expérimentateur
+
+```{r, echo=FALSE}
+dt19pop[-99,c(23,24)]-> exp
+exp %>% filter(ex == 1) -> exp
+dt19pop[-99,c(23,24)]-> nexp
+nexp %>% filter(ex == 0) -> nexp
+boxplot(exp$num,nexp$num, xlab = "Exp                                                            Nexp")
+```
+
+Pour l'année 2019, nous pouvons en conclure que les départements possédant au moins 1 expérimentateur ont tendance à avoir plus d'habitants que les départements n'en poosédant pas. 
+
+
+\newpage
+
+
+# 6. Comparaison des expérimentateurs en fonction de la superficie des départements pour l'année 2019
+
+```{r, echo=FALSE}
+# Importation des données
+sup19 <- read.csv("Data/T19F013.csv", header = TRUE, sep = ";")
+# Sélection des données
+sup19 <- sup19[c(-1,-2,-99,-104,-105,-106,-107,-108,-109),c(1,4)]
+sup19 <- sup19 %>% rename(Sup = X.2)
+# Ajout de sup19 à dt19
+dt19sup <- cbind(dt19,sup19)
+# Ajout d'une variable
+dt19sup %>% mutate(ex = ifelse(Exp > 0, 1, 0)) -> dt19sup
+# Mettre au format numéric la variable pop_millier_habitant  dans un variable nommé num
+num <- as.numeric(dt19sup$Sup)
+# On retrire pop_millier_habitant de dt19pop
+dt19sup[,-11] -> dt19sup
+# On regroupe les deux fichiers
+dt19sup <- cbind(dt19sup, num)
+```
+
+
+6.1 Boxplot de la superficie pour les départements 
+```{r, echo=FALSE}
+dt19sup[-99,c(11,12)]-> exp
+exp %>% filter(ex == 1) -> exp
+dt19sup[-99,c(11,12)]-> nexp
+nexp %>% filter(ex == 0) -> nexp
+boxplot(exp$num,nexp$num, xlab = "Exp                                                           Nexp")
+```
+
+Pour l'année 2019. Nous pouvons en conclure qu'il n'y a pas de différence significative de la superficie des départements, entre ceux qui possèdent au moins 1 exp et ceux qui n'en possèdent pas.
+
+
+\newpage
+
+# 7. Modèle de prédiction
+
+Nous allons découper l'échantillon en deux parties :
+
+* Un échantillon d'apprentissage
+* Un échantillon test
+
+L'échantillon d'apprentissage sera utilisés dans un premier temps, puis nous utiliserons l'échantillon test afin de confirmer nos résultats obtenus lors de notre première analyse.
+
+```{r, echo=FALSE, warning=FALSE}
+dataset <- tbl_ex[,c(-7)]
+dataset %>% mutate(ex = factor(ex,  labels=c("no", "yes"))) -> dataset
+set.seed(12345)
+trainIndex = dataset$ex %>% createDataPartition(p=0.7, times=1, list = FALSE)
+train = dataset[trainIndex,]
+test = dataset[-trainIndex,]
+```
+
+1. Modèle complet
+
+Voici notre modèle de prédiction complet : 
+```{r echo=FALSE, warning=FALSE}
+model1 = glm(ex~.,data=train,family=binomial(link="logit"))
+summary(model1)
+```
+
+Nous allons vérifier si les variables sont significatives en présence des autres variables :
+
+```{r, echo=FALSE, warning=FALSE}
+Anova(model1, type="II", test="LR")
+```
+
+Au vu des p_value, nous sommes en présence de variables non significative. Nous allons donc éliminer, de manière automatique, les estimations non pertinentes selon le critère **AIC (Akaike Information Criterion)**.
+
+2. Modèle AIC
+
+```{r, echo=FALSE, warning=FALSE}
+model2 = stepAIC(model1, direction = "both", k = 2, trace=FALSE)
+Anova(model2, type="II", test="LR")
+```
+
+Les variables sont significatives.
+
+
+3. Optimisation du modèle
+
+Nous cherchons maintenant le seuil de probabilité optimal permettant de considérer qu'un département possède un expérimentateur.
+Nous allons trouver n compromis entre le taux de vrais positifs, c'est à dire la proportion de vrais positifs parmi les classés positifs ou sensibilités, et le taux de vrais négatifs, c'est à dire la proportion de vrais négatifs parmi les classés négatifs ou spécificité. 
+
+
+```{r, echo=FALSE, warning=FALSE}
+# Courbe de sensibilité et de spécificité
+library(ROCR)
+proba = predict(model2, newdata=train, type="response")
+pred <- prediction(proba, train$ex)
+perf2 = performance(pred, measure = "sens", x.measure = "spec")
+
+data2 = data.frame(Sensibility = perf2@y.values[[1]], Specificity = perf2@x.values[[1]], Cutoff = perf2@alpha.values[[1]])
+(opt2 = data2[which.min(abs(data2$Sensibility - data2$Specificity)),])
+
+ggplot(data=data2)+
+  geom_line(aes(x=Cutoff, y=Sensibility, color="1"), size=1.3)+
+  geom_line(aes(x=Cutoff, y=Specificity, color="2"), size=1.3)+
+  labs(title="Courbe de sensibilité et de spécificité", x="Cutoff", y="Value")+
+  scale_color_discrete(name = "", labels = c("Sensitivity", "Specificity"))+
+  geom_vline(aes(xintercept=opt2$Cutoff), lty=2)+
+  annotate(geom = "text", x=0.25, y=0.80, label=paste("Seuil : ", (opt2$Cutoff)))
+```
+
+Le seuil optimal pour maximiser simultanément les deux critères est d'environ 0.18.
+
+
+4. Matrice de confusion
+
+Nous allons utiliser une matrice de confusion, afin de voir la qualité de notre modèle de prédiction.
+
+Pour rappel :
+
+Une **matrice de confusion** est une matrice qui mesure la qualité d'un système de classification. Chaque ligne correspond à une classe réelle, chaque colonne correspond à une classe estimée. Elle ne compare donc que les données réelles pour une variable cible, à celles prédites par un modèle.
+
+Pour pouvoir l'utiliser, nous allons créer une variable *test*, qui contiendra 90% de notre échantillon. Les 10% restant servira à la prédiction du modèle. Nous appliquerons notre modèle de prédiction sur les 10%, et la matrice de confusion les analysera pour pouvoir constater si le modèle est performant, ou non.
+
+Les indicateurs principales :
+
+* **Accuracy** qui représente le taux de bon classement du modèle
+* **Sensitivity** qui représente la *sensibilité* du modèle, i.e. le taux de bien classé parmis les expérimentateurs qui ont participé à l'étude
+* **Specificity** qui représente la *spécificité* du modèle, i.e. le taux de bien classé parmis les expérimentateurs qui n'ont pas participé à l'étude
+* **Pos Pred Value** qui représente la *précision* du modèle, i.e. le taux de bien classés parmi les expérimentateurs qui ont participé à l'étude classés comme expérimentateurs qui ont participé à l'étude
+* **Neg Pred Value** qui représente le taux de bien classés parmi les expérimentateurs classés comme non participant
+* **Prevalence** qui représente le taux d'expérimentateurs qui ont réellement participé à l'étude
+
+```{r, echo=FALSE, warning=FALSE}
+prediction = factor(ifelse(proba > opt2$Cutoff, "yes", "no"))
+CM = confusionMatrix(data=prediction, reference=train$ex, positive = "yes")
+print(CM)
+```
+
+Notre modèle prédit 80.29% de notre échantillon d'entraînement.
+
+Nous allons maintenant appliquer le modèle obtenu sur le jeu de données de test, afin de s'assurer d'une abscence de phénomène de sur-apprentissage :
+
+```{r, echo=FALSE, warning=FALSE}
+proba_test = predict(model2, newdata = test, type="response")
+prediction_test = factor(ifelse(proba_test > opt2$Cutoff, "yes", "no"))
+confusionMatrix(data=prediction_test, reference=test$ex, positive = "yes")
+```
+
+Nous obtenons sensiblement les mêmes résultats entre l'échantillon test et l'échantillon d'apprentissage, malgré une baisse dans quelques indicateurs. Par conséquent, le modèle semble pertinent.
+
+5. Multicolinéarité du modèle
+
+A présent, nous allons observer la présence, ou non, de corrélation entre les variables :
+
+```{r, echo=FALSE}
+#create vector of VIF values
+vif_values <- vif(model2)
+
+#create horizontal bar chart to display each VIF value
+barplot(vif_values, main = "VIF Values", horiz = TRUE, col = "steelblue")
+
+#add vertical line at 5
+abline(v = 5, lwd = 3, lty = 2)
+```
+
+Une valeur égale à 1 indique aucune corrélation, une valeur comprise en 1 et 5 indique une corrélation moyenne, et une valeur supérieure à 5 indique une forte corrélation. Ici, nous sommes dans le dernier cas, où les variables sont fortement corrélées. 

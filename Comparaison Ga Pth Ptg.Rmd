@@ -1,0 +1,552 @@
+---
+title: "Analyse Gagnant/Perdant"
+author: "Hugo MAURY"
+date: "`r format (Sys.time(),'%d %B %Y')`"
+fontsize : 7pt
+documentclass: "article"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+  rmarkdown::html_document:
+    theme : journal
+toc-title: "Sommaire"
+---
+
+\newpage
+
+```{r, include=FALSE}
+#library
+library(dplyr)
+library(gtsummary)
+library(ggplot2)
+library(tidyr)
+library(caret)
+library(car)
+library(MASS)
+```
+
+```{r, echo=FALSE}
+# Récupération des données
+data <- read.csv("base_donnees_taux.csv", sep=";", header=TRUE)
+```
+
+# Analyse Gagnant/Perdant au niveau global
+
+## Temps d'accès
+```{r, echo=FALSE}
+# Préparation des données
+data_GaPe <- data[,c(5,24:28)]
+data_GaPe %>% mutate(gagnant = ifelse(gagnant==1,"gagnant","perdant")) -> data_GaPe
+```
+
+### Chirurgie
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_chir
+ggplot(data_GaPe, aes(x = gagnant, y = tamax_chir, fill = gagnant)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max chirurgie",
+      x="",y="Temps d'accès max chirurgie")
+```
+
+\newpage
+
+### SSR
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_ssr
+ggplot(data_GaPe, aes(x = gagnant, y = tamiax_ssr, fill = gagnant)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max SSR",
+      x="",y="Temps d'accès max SSR")
+```
+
+\newpage
+
+### Long Séjours
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_longstay
+ggplot(data_GaPe, aes(x = gagnant, y = tamax_longstay, fill = gagnant)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max Long Séjours",
+      x="",y="Temps d'accès max Séjours")
+```
+
+\newpage
+
+### SSIAD
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_ssiad
+ggplot(data_GaPe, aes(x = gagnant, y = tamax_ssiad, fill = gagnant)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max SSIAD",
+      x="",y="Temps d'accès max SSIAD")
+```
+
+\newpage
+
+### Rhumatologue
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_rhumato
+ggplot(data_GaPe, aes(x = gagnant, y = tamax_rhumato, fill = gagnant)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max Rhumatologue",
+      x="",y="Temps d'accès max Rhumatologue")
+```
+
+\newpage
+
+## Nombre de structure de soin infirmier
+
+```{r, include=FALSE}
+# Préparation des données
+data_struct <- data[,c(5,29,30)]
+data_struct %>% mutate(gagnant = ifelse(gagnant==1,"gagnant","perdant")) -> data_struct
+```
+
+### CSIP
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# nb_csip
+ggplot(data_struct, aes(x = gagnant, y = nb_csip, fill = gagnant)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du nombre de Centre de Soin Infirmier",
+      x="",y="nombre de Centre de Soin Infirmier")
+```
+
+\newpage
+
+### SSIAD
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# nb_ssiad
+ggplot(data_struct, aes(x = gagnant, y = nb_ssiad, fill = gagnant)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du nombre de soin Infirmier à Domicile",
+      x="",y="nombre de soin Infirmier à Domicile ")
+```
+
+
+\newpage
+
+## Densité d'infirmier et de kiné
+
+```{r, include=FALSE}
+data_KiIn <- data[,c(5,31,32)]
+data_KiIn %>% mutate(gagnant = ifelse(gagnant==1,"gagnant","perdant")) -> data_KiIn
+```
+
+### Infirmier
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# density_nurse
+ggplot(data_KiIn, aes(gagnant, density_nurse, fill = gagnant)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution de la densité d'infirmier",
+      x="",y="Densité d'infirmier")
+```
+
+\newpage
+
+### Kiné
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# density_kine
+ggplot(data_KiIn, aes(x = gagnant, y = density_kine, fill = gagnant)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Boxplot de la densité de kiné (Gagnant)",
+      x="",y="Densité de kiné")
+```
+
+\newpage
+
+## Taux d'adressage SSR
+
+```{r, echo=FALSE}
+# Préparation des données
+data_tx <- data[,c(5,34,35)]
+data_tx %>% mutate(gagnant = ifelse(gagnant == 1, "gagnant","perdant")) -> data_tx
+data_tx %>% tbl_summary(by=gagnant)
+```
+
+\newpage
+
+## Analyse univarié
+
+```{r, include=FALSE}
+# Préparation des données
+data_univ <- data[,c(5,24:32,34,35)]
+data_univ <- data_univ %>% drop_na()
+```
+
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# Création du premier tableau (modèle multivarié)
+data_mode <- data_univ[,c(-2:-6,-12)]
+model1 = glm(gagnant~.,data=data_mode,family=binomial(link="logit"))
+Anova(model1, type="II",test="LR")
+model2 = stepAIC(model1, direction = "both", k = 2, trace=FALSE)
+Anova(model2, type="II", test="LR")
+model2 %>% tbl_regression(exponentiate = TRUE,pvalue_fun = function(x) style_pvalue(x, digits = 3), conf.int = FALSE) -> multi 
+# Création du deuxième tableau (univarié)
+coef <- data_univ %>%tbl_uvregression(method = glm, 
+                             y = gagnant,
+                             method.args = list(family = binomial(link="logit")),
+                             exponentiate = TRUE,
+                             hide_n = TRUE,
+                             conf.int = FALSE,
+                             pvalue_fun = function(x) style_pvalue(x, digits = 3)) %>% bold_p()
+data_univ %>% mutate(gagnant = ifelse(gagnant==1,"gagnant", "perdant")) -> data_univ
+# Création du troisième tableau (Comparaison des indicateurs)
+comparaison <- data_univ %>% tbl_summary(by=gagnant, digits = all_continuous() ~ 2) %>%  modify_header(label ~ "**Variable**")  %>% bold_labels() 
+```
+\newpage
+```{r, echo=FALSE, warning=FALSE}
+# Fusion des trois tableaux
+tbl_comp <-tbl_merge(tbls = list(comparaison, coef, multi), 
+    tab_spanner = c("**Comparaison**", "**Modele univarie**", "**Modele multivarie**"))
+
+tbl_comp
+```
+
+\newpage
+
+
+# Analyse Gagnant/Perdant au niveau PTH
+## Temps d'accès
+```{r, echo=FALSE}
+# Préparation des données
+data <- read.csv("base_donnees_territoire_PTH.csv", header=TRUE, sep=";")
+data <- data %>% drop_na()
+data_GaPe <- data[,c(6,24:28)]
+data_GaPe %>% mutate(pth = ifelse(pth==1,"gagnant","perdant")) -> data_GaPe
+```
+
+### Chirurgie
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_chir
+ggplot(data_GaPe, aes(x = pth, y = tamax_chir, fill = pth)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max chirurgie gagnant pour pth",
+      x="",y="Temps d'accès max chirurgie")
+```
+
+\newpage
+
+### SSR
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_ssr
+ggplot(data_GaPe, aes(x = pth, y = tamiax_ssr, fill = pth)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max SSR gagnant pour pth",
+      x="",y="Temps d'accès max SSR")
+```
+
+\newpage
+
+### Long Séjours
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_longstay
+ggplot(data_GaPe, aes(x = pth, y = tamax_longstay, fill = pth)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max Long Séjours gagnant pour pth",
+      x="",y="Temps d'accès max Séjours")
+```
+
+\newpage
+
+### SSIAD
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_ssiad
+ggplot(data_GaPe, aes(x = pth, y = tamax_ssiad, fill = pth)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max SSIAD gagnant pour pth",
+      x="",y="Temps d'accès max SSIAD")
+```
+
+\newpage
+
+### Rhumatologue
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_rhumato
+ggplot(data_GaPe, aes(x = pth, y = tamax_rhumato, fill = pth)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max Rhumatologue gagnant pour pth",
+      x="",y="Temps d'accès max Rhumatologue")
+```
+
+\newpage
+
+## Nombre de structure de soin infirmier
+
+```{r, include=FALSE}
+# Préparation des données
+data_struct <- data[,c(6,29,30)]
+data_struct %>% mutate(pth = ifelse(pth==1,"gagnant","perdant")) -> data_struct
+```
+
+### CSIP
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# nb_csip
+ggplot(data_struct, aes(x = pth, y = nb_csip, fill = pth)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du nombre de Centre de Soin Infirmier gagnant pour pth",
+      x="",y="nombre de Centre de Soin Infirmier")
+```
+
+\newpage
+
+### SSIAD
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# nb_ssiad
+ggplot(data_struct, aes(x = pth, y = nb_ssiad, fill = pth)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du nombre de soin Infirmier à Domicile gagnant pour pth",
+      x="",y="nombre de soin Infirmier à Domicile ")
+```
+
+
+\newpage
+
+## Densité d'infirmier et de kiné
+
+```{r, include=FALSE}
+data_KiIn <- data[,c(6,31,32)]
+data_KiIn %>% mutate(pth = ifelse(pth==1,"gagnant","perdant")) -> data_KiIn
+```
+
+### Infirmier
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# density_nurse
+ggplot(data_KiIn, aes(pth, density_nurse, fill = pth)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution de la densité d'infirmier gagnant pour pth",
+      x="",y="Densité d'infirmier")
+```
+
+\newpage
+
+### Kiné
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# density_kine
+ggplot(data_KiIn, aes(x = pth, y = density_kine, fill = pth)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Boxplot de la densité de kiné gagnant pour pth",
+      x="",y="Densité de kiné")
+```
+
+\newpage
+
+## Analyse univarié
+
+```{r, include=FALSE}
+# Préparation des données
+data_univ <- data[,c(6,24:32)]
+```
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# Création d'un tableau d'analyse
+# Premier tableau (univarié)
+#data_univ %>% tbl_summary(by = pth) %>% add_p(test = everything() ~ "kruskal.test",)
+coef <- data_univ %>%tbl_uvregression(method = glm, 
+                             y = pth,
+                             method.args = list(family = binomial(link="logit")),
+                             exponentiate = TRUE,
+                             hide_n = TRUE,
+                             conf.int = FALSE) %>% bold_p()
+data_univ %>% mutate(pth = ifelse(pth==1,"gagnant", "perdant")) -> data_univ
+# Deuxième tableau (comparaison des indicateurs)
+comparaison <- data_univ %>% tbl_summary(by=pth, digits = all_continuous() ~ 2) %>%  modify_header(label ~ "**Variable**")  %>% bold_labels() 
+# Fusion des deux tableaux
+tbl_comp <-tbl_merge(tbls = list(comparaison, coef), 
+    tab_spanner = c("**Comparaison**", "**Modele univarie**"))
+
+tbl_comp
+```
+
+\newpage
+
+# Analyse Gagnant/Perdant au niveau PTG
+## Temps d'accès
+```{r, echo=FALSE}
+# Préparation des données
+data <- read.csv("base_donnees_territoire_PTG.csv", header=TRUE, sep=";")
+data <- data %>% drop_na()
+data_GaPe <- data[,c(7,24:28)]
+data_GaPe %>% mutate(ptg = ifelse(ptg==1,"gagnant","perdant")) -> data_GaPe
+```
+
+### Chirurgie
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_chir
+ggplot(data_GaPe, aes(x = ptg, y = tamax_chir, fill = ptg)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max chirurgie gagnant pour ptg",
+      x="",y="Temps d'accès max chirurgie")
+```
+
+\newpage
+
+### SSR
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_ssr
+ggplot(data_GaPe, aes(x = ptg, y = tamiax_ssr, fill = ptg)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max SSR gagnant pour ptg",
+      x="",y="Temps d'accès max SSR")
+```
+
+\newpage
+
+### Long Séjours
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_longstay
+ggplot(data_GaPe, aes(x = ptg, y = tamax_longstay, fill = ptg)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max Long Séjours gagnant pour ptg",
+      x="",y="Temps d'accès max Séjours")
+```
+
+\newpage
+
+### SSIAD
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_ssiad
+ggplot(data_GaPe, aes(x = ptg, y = tamax_ssiad, fill = ptg)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max SSIAD gagnant pour ptg",
+      x="",y="Temps d'accès max SSIAD")
+```
+
+\newpage
+
+### Rhumatologue
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# tamax_rhumato
+ggplot(data_GaPe, aes(x = ptg, y = tamax_rhumato, fill = ptg)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du temps d'accès max Rhumatologue gagnant pour ptg",
+      x="",y="Temps d'accès max Rhumatologue")
+```
+
+\newpage
+
+## Nombre de structure de soin infirmier
+
+```{r, include=FALSE}
+# Préparation des données
+data_struct <- data[,c(7,29,30)]
+data_struct %>% mutate(ptg = ifelse(ptg==1,"gagnant","perdant")) -> data_struct
+```
+
+### CSIP
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# nb_csip
+ggplot(data_struct, aes(x = ptg, y = nb_csip, fill = ptg)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du nombre de Centre de Soin Infirmier gagnant pour ptg",
+      x="",y="nombre de Centre de Soin Infirmier")
+```
+
+\newpage
+
+### SSIAD
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# nb_ssiad
+ggplot(data_struct, aes(x = ptg, y = nb_ssiad, fill = ptg)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution du nombre de soin Infirmier à Domicile gagnant pour ptg",
+      x="",y="nombre de soin Infirmier à Domicile ")
+```
+
+
+\newpage
+
+## Densité d'infirmier et de kiné
+
+```{r, include=FALSE}
+data_KiIn <- data[,c(7,31,32)]
+data_KiIn %>% mutate(ptg = ifelse(ptg==1,"gagnant","perdant")) -> data_KiIn
+```
+
+### Infirmier
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# density_nurse
+ggplot(data_KiIn, aes(ptg, density_nurse, fill = ptg)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Distribution de la densité d'infirmier gagnant pour ptg",
+      x="",y="Densité d'infirmier")
+```
+
+\newpage
+
+### Kiné
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# density_kine
+ggplot(data_KiIn, aes(x = ptg, y = density_kine, fill = ptg)) + 
+  geom_boxplot() +
+  geom_jitter(position=position_jitter(0))+
+  labs(title="Boxplot de la densité de kiné gagnant pour ptg",
+      x="",y="Densité de kiné")
+```
+
+\newpage
+
+## Analyse univarié
+
+```{r, include=FALSE}
+# Préparation des données
+data_univ <- data[,c(7,24:32)]
+```
+
+```{r, echo=FALSE, fig.align="center", warning=FALSE}
+# Création d'un tableau
+# Premier tableau (univarié) 
+coef <- data_univ %>%tbl_uvregression(method = glm, 
+                             y = ptg,
+                             method.args = list(family = binomial(link="logit")),
+                             exponentiate = TRUE,
+                             hide_n = TRUE,
+                             conf.int = FALSE) %>% bold_p()
+data_univ %>% mutate(ptg = ifelse(ptg==1,"gagnant", "perdant")) -> data_univ
+# Deuxième tableau (comparaison des indicateurs)
+comparaison <- data_univ %>% tbl_summary(by=ptg, digits = all_continuous() ~ 2) %>%  modify_header(label ~ "**Variable**")  %>% bold_labels() 
+# Fusion des deux tableaux
+tbl_comp <-tbl_merge(tbls = list(comparaison, coef), 
+    tab_spanner = c("**Comparaison**", "**Modele univarie**"))
+
+tbl_comp
+```

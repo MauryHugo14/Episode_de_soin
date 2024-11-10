@@ -1,0 +1,248 @@
+---
+title: "Analyse en Panel"
+author: "Hugo MAURY"
+date: "`r format (Sys.time(),'%d %B %Y')`"
+fontsize : 7pt
+documentclass: "article"
+output: 
+  html_document:
+    toc: true
+    number_sections: true
+  rmarkdown::html_document:
+    theme : journal
+toc-title: "Sommaire"
+---
+
+\newpage
+
+```{r, include=FALSE}
+library(dplyr)
+library(plm)
+library(forestplot)
+library(ggplot2)
+library(tidyr)
+library(gtsummary)
+```
+
+
+```{r, echo=FALSE}
+# Importation des données
+adress <- read.csv("newdata/adressage2SSR_global.csv", header=TRUE, sep=";") # Base de données avec juste les taux
+adress2 <- read.csv("base_donnees_Taux_Cpx.csv", header=TRUE, sep=";") # Base de données avec les Taux et les indicateurs territoriaux
+
+```
+
+# Analyse en PANEL
+
+```{r, echo=FALSE, warning=FALSE}
+# Boucle permettant de faire une analyse en panel, année par année
+coefplm_cpx <- c()
+coefplm_gagnant <- c()
+adress2 <- adress2 %>% drop_na()
+for (i in 35:39){
+  
+  p <- plm(log(adress2[,i])~cpx+gagnant, data=adress2, index=c("finess"), model = "random")
+  s <- summary(p)
+  
+  temp_cpx <- data.frame(p$coefficients[2], confint(p)[2,1],confint(p)[2,2], s$coefficients[2,4])
+  temp_gagnant <- data.frame(p$coefficients[3], confint(p)[3,1],confint(p)[3,2], s$coefficients[3,4])
+  coefplm_cpx <- rbind(coefplm_cpx, temp_cpx)
+  coefplm_gagnant <- rbind(coefplm_gagnant, temp_gagnant)
+  temp_cpx <- c()
+  temp_gagnant <- c()
+}
+
+# Les lignes prennent le nom des variables
+rownames(coefplm_cpx) <- c("X2015","X2016","X2017","X2018","X2019")
+rownames(coefplm_gagnant) <- c("X2015","X2016","X2017","X2018","X2019")
+
+# On nommes les 3 colonnes
+colnames(coefplm_cpx) <- c("Coef","Lower","Upper","p_value")
+colnames(coefplm_gagnant) <- c("Coef","Lower","Upper","p_value")
+
+# On tranforme coefplm en data.frame
+coefplm_cpx <- data.frame(coefplm_cpx)
+coefplm_gagnant <- data.frame(coefplm_gagnant)
+```
+
+## Coefficient des gagnants de la simulation des forfaits
+```{r, echo=FALSE, warning=FALSE}
+# Visualisation des coef avec leurs CI95% pour chaque variable
+forestplot(rownames(coefplm_gagnant), coefplm_gagnant$Coef, 
+           coefplm_gagnant$Lower,
+           coefplm_gagnant$Upper,
+           zero = 0,
+           xlab = "Coef (95%) ",
+           col = fpColors(box = c("red4"), 
+                          lines = c("skyblue3")),
+           xticks = seq(-0.6,0.4,0.2),
+           boxsize = 0.1,
+           vertices = TRUE,
+           txt_gp = fpTxtGp(label = list(gpar(fontfamily = "",
+                                                col = "#660001", cex = .75)),
+                              ticks = gpar(fontfamily = "", cex = .5),
+                              xlab  = gpar(fontfamily = "font", cex = .9)))
+```
+
+## Coefficient des complexités des patients
+```{r, echo=FALSE, warning=FALSE}
+# Visualisation des coef avec leurs CI95% pour chaque variable
+forestplot(rownames(coefplm_cpx), coefplm_cpx$Coef, 
+           coefplm_cpx$Lower,
+           coefplm_cpx$Upper,
+           zero = 0,
+           xlab = "Coef (95%) ",
+           col = fpColors(box = c("red4"), 
+                          lines = c("skyblue3")),
+           xticks = seq(0,1,0.2),
+           boxsize = 0.1,
+           vertices = TRUE,
+           txt_gp = fpTxtGp(label = list(gpar(fontfamily = "",
+                                                col = "#660001", cex = .75)),
+                              ticks = gpar(fontfamily = "", cex = .5),
+                              xlab  = gpar(fontfamily = "font", cex = .9)))
+```
+
+
+\newpage
+
+# Représentation graphique du taux d'adressage
+
+```{r, echo=FALSE, warning=FALSE}
+# Préparation des données
+dt <- adress
+dt <- dt %>% rename(finess = FinessGeo)
+# On récupère les établissements exp :
+data <- load(file = "Data/graphstat_ortho_dept/graphstat_ortho19_dept.Rdata")
+data <- localstat
+dt <- merge(x = data, y = dt, by = "finess")
+dt <- dt %>% mutate(experimentateur = ifelse(experimentateur == 1, "Experimentateur", "Non-experimentateur"),
+                    cpx = ifelse(cpx==1,"Complexe","Non-complexe"))
+```
+
+## 2015
+```{r,echo=FALSE, fig.align="center", warning=FALSE}
+# On récupère les exp et les taux pour l'année 2015
+cpx15 <- dt %>% select(experimentateur, X2015, cpx) 
+# Boxplot
+ggplot(cpx15, aes(cpx, X2015)) + 
+  geom_boxplot() +
+  facet_wrap(~experimentateur)+
+  labs(title="Distribution du taux d'adressage SSR en 2015",
+      x="Complexité du patient",y="Taux d'adressage (%)")
+```
+
+\newpage
+
+## 2016
+```{r,echo=FALSE, fig.align="center", warning=FALSE}
+# On récupère les exp et les taux pour l'année 2016
+cpx16 <- dt %>% select(experimentateur, X2016, cpx) 
+# Boxplot
+ggplot(cpx16, aes(cpx, X2016)) + 
+  geom_boxplot() +
+  facet_wrap(~experimentateur)+
+  labs(title="Distribution du taux d'adressage SSR en 2016",
+      x="Complexité du patient",y="Taux d'adressage (%)")
+```
+
+\newpage
+
+## 2017
+```{r,echo=FALSE, fig.align="center", warning=FALSE}
+# On récupère les exp et les taux pour l'année 2017
+cpx17 <- dt %>% select(experimentateur, X2017, cpx)
+#Boxplot
+ggplot(cpx17, aes(cpx, X2017)) + 
+  geom_boxplot() +
+  facet_wrap(~experimentateur)+
+  labs(title="Distribution du taux d'adressage SSR en 2017",
+      x="Complexité du patient",y="Taux d'adressage (%)")
+```
+
+\newpage
+
+## 2018
+```{r,echo=FALSE, fig.align="center", warning=FALSE}
+# On récupère les exp et les taux pour l'année 2018
+cpx18 <- dt %>% select(experimentateur, X2018, cpx)
+#Boxplot
+ggplot(cpx18, aes(cpx, X2018)) + 
+  geom_boxplot() +
+  facet_wrap(~experimentateur)+
+  labs(title="Distribution du taux d'adressage SSR en 2018",
+      x="Complexité du patient",y="Taux d'adressage (%)")
+```
+
+\newpage
+
+## 2019
+```{r,echo=FALSE, fig.align="center", warning=FALSE}
+# On récupère les exp et les taux pour l'année 2018
+cpx19 <- dt %>% select(experimentateur, X2019, cpx)
+#Boxplot
+ggplot(cpx19, aes(cpx, X2019)) + 
+  geom_boxplot() +
+  facet_wrap(~experimentateur)+
+  labs(title="Distribution du taux d'adressage SSR en 2019",
+      x="Complexité du patient",y="Taux d'adressage (%)")
+```
+
+\newpage
+
+## Taux global au fur et à mesure des années
+
+```{r, echo=FALSE, warning=FALSE}
+# On récupère les exp et les taux pour chaque année
+cpxtot <- dt %>% select(X2015, X2016, X2017, X2018, X2019, cpx)
+#Boxplot
+tx_comp <- cpxtot %>% filter(cpx=="Complexe")
+tx_comp <- tx_comp[,-6]
+tx_nocomp <- cpxtot %>% filter(cpx=="Non-complexe")
+tx_nocomp <- tx_nocomp[,-6]
+```
+
+### Patient dit "complexe"
+```{r,echo=FALSE, fig.align="center", warning=FALSE}
+boxplot(tx_comp)
+```
+
+\newpage
+
+### Patient dit "non-complexe"
+```{r,echo=FALSE, fig.align="center", warning=FALSE}
+boxplot(tx_nocomp)
+```
+
+
+```{r, include=FALSE}
+# Création d'une base de données sur avoir les Taux_cpx0 et Taux_cpx0
+# Préparation des données
+data <- read.csv("base_donnees_Taux_Cpx.csv", sep=";", header=TRUE)
+data[,c(1,34,39)] -> dt_test
+dt_test %>% mutate(Taux_cpx0 = 0, Taux_cpx1 = 0) -> dt_test2
+dt_test2 %>% select(finess) %>% unique() -> a
+a %>% mutate(Taux_cpx0 = 0, Taux_cpx1 = 0, finess_pred =0) -> Taux_cpx
+dt_test2 %>% filter(cpx==1) -> cpx1
+dt_test2 %>% filter(cpx==0) -> cpx0
+
+for (i in 1:length(cpx0$finess[])){
+  
+  Taux_cpx$Taux_cpx0[i] <- cpx0$Taux_2019[i]
+  Taux_cpx$finess_pred[i] <- cpx0$finess[i]
+
+}
+
+for (i in 1:length(cpx1$finess[])){
+  
+  Taux_cpx$Taux_cpx1[i] <- cpx1$Taux_2019[i]
+  Taux_cpx$finess_pred[i] <- cpx1$finess[i]
+  
+}
+
+Taux_cpx <- Taux_cpx[,-4]
+data = read.csv("base_donnees_territoire_PTH.csv", header=TRUE, sep=";")
+data3 <- merge(x = data, y = Taux_cpx, by = "finess")
+data3 <- data3[,c(-34:-36)]
+#write.csv2(data3, "Base_donnees_taux.csv", row.names = FALSE)
+```

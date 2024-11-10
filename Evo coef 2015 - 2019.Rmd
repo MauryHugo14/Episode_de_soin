@@ -1,0 +1,208 @@
+---
+title: "Evolution des coefficients : 2015 - 2019"
+author: "Hugo MAURY"
+date: "`r format (Sys.time(),'%d %B %Y')`"
+fontsize : 7pt
+documentclass: "article"
+output: 
+  rmarkdown::html_document:
+    theme : journal
+---
+
+<center>
+  ![](EHESP-logo.webp){width=60%, height=60%}
+</center>
+
+\newpage
+
+# Library
+```{r, include=FALSE}
+# Chargement des libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(plm)
+library(forestplot)
+```
+
+# Données
+```{r, include=FALSE}
+#rm(list=ls())
+# Chargements des données
+# 2015
+dt15 = load(file = "Data/graphstat_ortho_dept/graphstat_ortho15_dept.Rdata")
+dt15 = localstat
+# 2016
+dt16 = load(file = "Data/graphstat_ortho_dept/graphstat_ortho16_dept.Rdata")
+dt16 = localstat
+# 2017
+dt17 = load(file = "Data/graphstat_ortho_dept/graphstat_ortho17_dept.Rdata")
+dt17 = localstat
+# 2018
+dt18 = load(file = "Data/graphstat_ortho_dept/graphstat_ortho18_dept.Rdata")
+dt18 = localstat
+# 2019
+dt19 = load(file = "Data/graphstat_ortho_dept/graphstat_ortho19_dept.Rdata")
+dt19 = localstat
+# On sélectionne les données que l'on a besoin
+# 2015
+dt15[,c(1,4,5,6,7,8,10,11,13,15,16,17,18,19,40)] -> dt15
+dt15 %>% filter(status == "MCO") -> dt15
+# 2016
+dt16[,c(1,4,5,6,7,8,10,11,13,15,16,17,18,19,40)] -> dt16
+dt16 %>% filter(status == "MCO") -> dt16
+# 2017
+dt17[,c(1,4,5,6,7,8,10,11,13,15,16,17,18,19,40)] -> dt17
+dt17 %>% filter(status == "MCO") -> dt17
+# 2018
+dt18[,c(1,4,5,6,7,8,10,11,13,15,16,17,18,19,40)] -> dt18
+dt18 %>% filter(status == "MCO") -> dt18
+# 2019
+dt19[,c(1,4,5,6,7,8,10,11,13,15,16,17,18,19,40)]-> dt19
+dt19 %>% filter(status == "MCO") -> dt19
+
+# Ajout des années
+dt15 %>% mutate(annee = 2015) -> dt15
+dt16 %>% mutate(annee = 2016) -> dt16
+dt17 %>% mutate(annee = 2017) -> dt17
+dt18 %>% mutate(annee = 2018) -> dt18
+dt19 %>% mutate(annee = 2019) -> dt19
+
+# Sélection des batiments qui sont représentés depuis l'année 2015
+selec = rbind(dt15, dt16, dt17, dt18, dt19)
+selec %>% group_by(name) %>% mutate(Count = n()) -> selec
+selec %>% filter(Count == 5) -> test
+```
+
+\newpage
+
+# plm
+```{r, echo=FALSE, warning=FALSE}
+test <- data.frame(test)
+
+variables <- c("strength_total","degree","pagerank","prestige","closeness_all","triangles",
+              "centrality","betweenness")
+
+coefplm <- c()
+
+# Création d'unue boucle afin de récupérer les coef et les CI95% pour chaque variable
+for (i in variables){
+  
+    if (!i %in% c("betweenness","triangles")){
+        p <- plm(log(test[,i])~test$experimentateur*factor(test$annee), data=test, index=c("name", "annee"))
+        s <- summary(p)
+    }
+  
+    else {
+      p <- plm(test[,i]~test$experimentateur*factor(test$annee), data=test, index=c("name", "annee"))
+      s <- summary(p)
+    }
+    
+    #juste la variable
+    temp <- data.frame(p$coefficients[1], confint(p)[1,1],confint(p)[1,2], s$coefficients[1,4])
+    coefplm <- rbind(coefplm, temp)
+    temp <- c()
+}
+
+# Les lignes prennent le nom des variables
+rownames(coefplm) <- variables
+
+# On nommes les 3 colonnes
+colnames(coefplm) <- c("Coef","Lower","Upper","p_value")
+
+# On tranforme coefplm en data.frame
+coefplm <- data.frame(coefplm)
+
+# Visualisation des coef avec leurs CI95% pour chaque variable
+forestplot(rownames(coefplm), coefplm$Coef, 
+           coefplm$Lower,
+           coefplm$Upper,
+           zero = 0,
+           xlab = "Coef (95%) ",
+           col = fpColors(box = c("red4"), 
+                          lines = c("skyblue3")),
+           xticks = seq(-0.5,1.5,0.5),
+           boxsize = 0.1,
+           vertices = TRUE,
+           txt_gp = fpTxtGp(label = list(gpar(fontfamily = "",
+                                                col = "#660001", cex = .75)),
+                              ticks = gpar(fontfamily = "", cex = .5),
+                              xlab  = gpar(fontfamily = "font", cex = .9)))
+
+
+```
+
+
+```{r, echo=FALSE}
+# Coef année par année en fonction de la variable
+coefplmannee <- c()
+
+# Création d'une boucle afin de calculer les coef ainsi que le CI95% pour chaque variables pour chaque année
+for (i in variables){
+  
+    if (!i %in% c("betweenness","triangles")){
+        p <- plm(log(test[,i])~test$experimentateur*factor(test$annee), data=test, index=c("name", "annee"))
+        s <- summary(p)
+        p$coefficients <- (exp(p$coefficients)-1)*100 
+    }
+  
+    else {
+      p <- plm(test[,i]~test$experimentateur*factor(test$annee), data=test, index=c("name", "annee"))
+      s <- summary(p)
+      p$coefficients <- (exp(p$coefficients)-1)*100 
+    }
+    
+    #année par année
+    temp <- data.frame(p$coefficients[2:5], confint(p)[2:5,1],confint(p)[2:5,2], 2016:2019,s$coefficients[1,4])
+    coefplmannee <- rbind(coefplmannee, temp)
+    temp <- c()
+}
+
+# On nomme les colonnes
+colnames(coefplmannee) <- c("Coef","Lower","Upper","year","P_value")
+
+# On transforme coefplmannee en data.frame
+coefplmannee <- data.frame(coefplmannee)
+
+# On ajoute les noms des variables dans une 5ème colonne
+coefplmannee[c(1:4),6] <- "pagerank"
+coefplmannee[c(5:8),6] <- "degree"
+coefplmannee[c(9:12),6] <- "strength"
+coefplmannee[c(13:16),6] <- "closeness"
+coefplmannee[c(17:20),6] <- "centrality"
+coefplmannee[c(21:24),6] <- "prestige"
+coefplmannee[c(25:28),6] <- "betweenness"
+coefplmannee[c(29:32),6] <- "triangles"
+
+# On change le nom de la 5ème colonnne
+coefplmannee %>% rename(var = V6) -> coefplmannee
+
+# Visualisation des 8 coefs avec leurs CI95% pour les 8 variables
+coefplmannee %>% ggplot(aes(x=year))+
+  geom_line(aes(y=Coef), color = "1")+
+  geom_line(aes(y=Lower), color = "2", linetype = "dashed")+
+  geom_line(aes(y=Upper), color = "2", linetype = "dashed")+
+  scale_y_continuous(limits = c(-15,-5))+ #Régler le pb de l'intervalle pour une meilleur visualisation
+  facet_wrap(~var)+
+  labs(title="", x="Year", y="")+
+  theme(plot.title = element_text(hjust = 0.5, 
+                                  size=12,
+                                  color="black",
+                                  face="bold"),
+        axis.text.x = element_text(size=rel(.75)),
+        axis.text.y = element_text(size=rel(.75))
+        )
+```
+
+
+
+```{r, echo=FALSE}
+"Brouillon"
+
+# Modèle ZIP
+#library(pscl)
+#summary(zeroinfl(Y ~ exp | exp))
+
+# Modèle classique
+#summary(m2 <- glm(test$pagerank ~ test$experimentateur, family = "poisson"))
+```
